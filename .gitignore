@@ -35,3 +35,6 @@ build/
 !/.mvn/
 .m2
 .mvn
+/.mvn/
+/.m2/
+/.idea/

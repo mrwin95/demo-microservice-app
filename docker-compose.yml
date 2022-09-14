@@ -1,0 +1,220 @@
+version: "2.1"
+services:
+  mysql:
+    container_name: mysql
+    image: mysql:latest
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=Thang
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      interval: 10s
+      retries: 5
+  zipkin:
+    container_name: zipkin
+    image: openzipkin/zipkin
+#    deploy:
+#      replicas: 1
+#      update_config:
+#        parallelism: 1
+#        delay: 1m30s
+#        failure_action: rollback
+#      rollback_config:
+#        parallelism: 1
+#        delay: 1m30s
+#      restart_policy:
+#        condition: on-failure
+#        delay: 5s
+#        max_attempts: 3
+#      resources:
+#        limits:
+#          memory: 500M
+#        reservations:
+#          memory: 100M
+    ports:
+      - "9411:9411"
+#    environment:
+#      - RABBIT_CONCURRENCY=1
+#      - RABBIT_CONNECTION_TIMEOUT=60000
+#      - RABBIT_QUEUE=zipkin
+#      - RABBIT_ADDRESSES=rabbitmq
+#      - RABBIT_USER=admin
+#      - RABBIT_PASSWORD=Thang123
+#      - RABBIT_VIRTUAL_HOST=app_vhost
+#      - RABBIT_USE_SSL= "false"
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:9411/health  || exit 1
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.8-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=Thang123
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  cloud-naming-svc:
+    container_name: cloud-naming-svc
+    build:
+      context: ./cloud-naming-svc
+      dockerfile: dev.Dockerfile
+    volumes:
+      - ./cloud-naming-svc/:/app
+      - /Users/winnguyen/.m2/:/root/.m2
+    working_dir: /app
+    command: sh run.sh
+    ports:
+      - "8761:8761"
+      - "8000:8000"
+    networks:
+      - demo-microservice-nw
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 1m10s
+      timeout: 10s
+      retries: 5
+
+  config-svc:
+    container_name: config-svc
+    build:
+      context: ./config-svc
+      dockerfile: dev.Dockerfile
+    volumes:
+      - ./config-svc/:/app
+      - /Users/winnguyen/.m2/:/root/.m2
+    working_dir: /app
+    command: sh run.sh
+    ports:
+      - "8888:8888"
+      - "8001:8001"
+    networks:
+      - demo-microservice-nw
+    environment:
+      EUREKA_URL: http://cloud-naming-svc:8761/eureka/
+      GIT_URI: https://github.com/mrwin95/config-file-server.git
+      GIT_USER: '{cipher}fd5d6fd4118e8425aaad6da0c745b0c583c647a49f8450c62239a8469a5ebd28'
+      GIT_PASS: '{cipher}30c0af3b592add14310b3d99e558439b80242eb00a3e3d62266a30e740c26351ad8a18cbcfcc22609688f15c8f157ad9c529784d2ddfc116ce9bd9c4b283b103'
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8888/config-server/actuator/health" ]
+      interval: 1m10s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      - cloud-naming-svc
+
+  cloud-gateway-svc:
+    container_name: cloud-gateway-svc
+    build:
+      context: ./cloud-gateway-svc
+      dockerfile: dev.Dockerfile
+    volumes:
+      - ./cloud-gateway-svc/:/app
+      - /Users/winnguyen/.m2/:/root/.m2
+    working_dir: /app
+    command: sh run.sh
+    ports:
+      - "8889:8889"
+      - "8002:8002"
+      - "35729:35729"
+    networks:
+      - demo-microservice-nw
+    environment:
+      EUREKA_URL: http://cloud-naming-svc:8761/eureka/
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8889/actuator/health" ]
+      interval: 1m10s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      - cloud-naming-svc
+
+  department-svc:
+    container_name: department-svc
+    build:
+      context: ./department-svc
+      dockerfile: dev.Dockerfile
+    volumes:
+      - ./department-svc/:/app
+      - /Users/winnguyen/.m2/:/root/.m2
+    working_dir: /app
+    command: sh run.sh
+    ports:
+      - "8801:8801"
+      - "8003:8003"
+      - "35739:35739"
+    networks:
+      - demo-microservice-nw
+    environment:
+      EUREKA_URL: http://cloud-naming-svc:8761/eureka/
+      CONFIG_URL: http://config-svc:8888/config-server
+      ZIPKIN_URL: http://zipkin:9411/
+      MYSQL_URL: jdbc:mysql://mysql:3306/department?useSSL=false
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8801/actuator/health" ]
+      interval: 1m10s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      - mysql
+      - rabbitmq
+      - zipkin
+      - cloud-naming-svc
+      - config-svc
+      - cloud-gateway-svc
+
+#  employee-svc:
+#    container_name: employee-svc
+#    build:
+#      context: ./employee-svc
+#      dockerfile: dev.Dockerfile
+#    volumes:
+#      - ./employee-svc/:/app
+#      - /Users/winnguyen/.m2/:/root/.m2
+#    working_dir: /app
+#    command: sh run.sh
+#    ports:
+#      - "8802:8802"
+#      - "8004:8004"
+#      - "35749:35749"
+#    networks:
+#      - demo-microservice-nw
+#    environment:
+#      EUREKA_URL: http://cloud-naming-svc:8761/eureka/
+#      CONFIG_URL: http://config-svc:8888/config-server
+#      ZIPKIN_URL: http://zipkin:9411/
+#      MYSQL_URL: jdbc:mysql://mysql:3306/department
+#
+#    healthcheck:
+#      test: [ "CMD", "curl", "-f", "http://localhost:8802/actuator/health" ]
+#      interval: 1m10s
+#      timeout: 10s
+#      retries: 5
+#    depends_on:
+#      - mysql
+#      - rabbitmq
+#      - zipkin
+#      - cloud-naming-svc
+#      - config-svc
+#      - cloud-gateway-svc
+volumes:
+  mysql_data:
+
+networks:
+  demo-microservice-nw:

@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: department-svc
+  config:
+    import: "optional:configserver:"
+
+  devtools:
+    livereload:
+      enabled: true
+      port: 35739
+  zipkin:
+    base-url: ${ZIPKIN_URL:http://localhost:9411/}
+server:
+  port: ${port:8801}
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+
+springdoc:
+  packages-to-scan: com.demo.departmentsvc
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      employee-svc:
+        register-health-indicator: true
+        event-consumer-buffer-size: 10
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state:
+          units:
+            - 5s
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-size: 10
+        sliding-window-type: count_based

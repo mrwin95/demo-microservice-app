@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: auth-svc
+  devtools:
+    livereload:
+      enabled: true
+      port: 35759
+    restart:
+      enabled: true
+
+server:
+  port: 8803
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: always
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+logging:
+  level:
+    root: INFO
+    com.demo.authservice: TRACE
+    org.springframework.web: INFO
+    org.springframework.web.HttpLogging: DEBUG
+    org.springframework.security: DEBUG

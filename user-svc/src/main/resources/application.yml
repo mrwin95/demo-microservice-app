@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: user-svc
+  config:
+    import: "optional:configserver:" #http://localhost:8888/
+  devtools:
+    livereload:
+      enabled: true
+      port: 35769
+  zipkin:
+    base-url: http://localhost:9411/
+server:
+  port: ${port:8805}
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+
+springdoc:
+  packages-to-scan: com.demo.usersvc
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: always

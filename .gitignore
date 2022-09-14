@@ -33,3 +33,5 @@ build/
 .vscode/
 !/.m2/
 !/.mvn/
+.m2
+.mvn
